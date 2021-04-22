@@ -1,0 +1,7 @@
+apiVersion: v2
+name: rundeck
+description: Rundeck
+
+type: application
+version: 1.0.0-rc11
+appVersion: 3.3.9

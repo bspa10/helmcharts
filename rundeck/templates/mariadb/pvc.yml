@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-mariadb-data
+  labels:
+    app.funpresp.k8s/part-of: {{ .Release.Name }}
+spec:
+  storageClassName: {{ .Values.mariadb.storage.class }}
+  accessModes: 
+    - {{ .Values.mariadb.storage.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.mariadb.storage.size }}
+  

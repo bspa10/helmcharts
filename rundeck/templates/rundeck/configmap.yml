@@ -1,0 +1,107 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-config
+  labels:
+    app.funpresp.k8s/part-of: rundeck
+data:
+  admin.aclpolicy: |
+    description: Admin, all access.
+    context: {project: '.*'}
+    for:
+      resource: [{ allow: '*' }]
+      adhoc: [{ allow: '*' }]
+      job: [{ allow: '*' }]
+      node: [{ allow: '*' }]
+    by:
+      group: G-SUPORTE-RUNDECK-ADMIN
+    ---
+    description: Admin, all access.
+    context: { application: 'rundeck' }
+    for:
+      resource: [{ allow: '*' }]
+      project: [{ allow: '*' }]
+      project_acl: [{ allow: '*' }]
+      storage: [{ allow: '*' }]
+    by:
+      group: G-SUPORTE-RUNDECK-ADMIN
+  desenvolvimento.aclpolicy: |
+    description: System-level read access to specific project
+    context:
+      application: rundeck
+    for:
+      project:
+        - allow: read
+          equals:
+            name: desenvolvimento
+      storage:
+        - allow: read
+    by:
+      group: G-SUPORTE-RUNDECK-DES
+    ---
+    description: Projeto desenvolvimento.
+    context: {project: 'desenvolvimento'}
+    for:
+      job: [{ allow: [read, run] }]
+    by:
+      group: G-SUPORTE-RUNDECK-DES
+  qualidade.aclpolicy: |
+    description: System-level read access to specific project
+    context:
+      application: rundeck
+    for:
+      project:
+        - allow: read
+          equals:
+            name: qualidade
+      storage:
+        - allow: read
+    by:
+      group: G-SUPORTE-RUNDECK-QA
+    ---
+    description: Projeto Qualidade.
+    context: {project: 'qualidade'}
+    for:
+      job: [{ allow: [read, run] }]
+    by:
+      group: G-SUPORTE-RUNDECK-QA
+  homologacao.aclpolicy: |
+    description: System-level read access to specific project
+    context:
+      application: rundeck
+    for:
+      project:
+        - allow: read
+          equals:
+            name: qualidade
+      storage:
+        - allow: read
+    by:
+      group: G-SUPORTE-RUNDECK-HMG
+    ---
+    description: Projeto Homologação.
+    context: {project: 'homologacao'}
+    for:
+      job: [{ allow: [read, run] }]
+    by:
+      group: G-SUPORTE-RUNDECK-HMG
+  producao.aclpolicy: |
+    description: System-level read access to specific project
+    context:
+      application: rundeck
+    for:
+      project:
+        - allow: read
+          equals:
+            name: qualidade
+      storage:
+        - allow: read
+    by:
+      group: G-SUPORTE-RUNDECK-PRD
+    ---
+    description: Projeto Produção.
+    context: {project: 'producao'}
+    for:
+      job: [{ allow: [read, run] }]
+    by:
+      group: G-SUPORTE-RUNDECK-PRD

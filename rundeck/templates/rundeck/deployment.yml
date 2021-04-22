@@ -1,0 +1,153 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-server
+  labels:
+    app.funpresp.k8s/name: rundeck
+    app.funpresp.k8s/instance: server
+    app.funpresp.k8s/part-of: {{ .Release.Name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.funpresp.k8s/name: rundeck
+      app.funpresp.k8s/instance: server
+      app.funpresp.k8s/part-of: {{ .Release.Name }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app.funpresp.k8s/name: rundeck
+        app.funpresp.k8s/instance: server
+        app.funpresp.k8s/part-of: {{ .Release.Name }}
+    spec:  
+      {{ if .Values.rundeck.affinity }}
+      # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+      #                             AFFINITY    
+      # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+      affinity:  {{ .Values.rundeck.affinity | toYaml | nindent 8 }}
+      {{ end }}
+      # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+      #                                VOLUMES    
+      # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+      volumes:
+        - name: configs
+          configMap:
+            name: {{ .Release.Name }}-config
+            defaultMode: 0775
+            optional: false
+      # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+      #                          Image Pull Secrets    
+      # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+      imagePullSecrets: 
+        - name: funpresp
+      # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+      #                            CONTAINERS    
+      # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+      containers:
+        - name: rundeck
+          image: rundeck/rundeck:{{ .Values.rundeck.image.tag }}
+          imagePullPolicy: IfNotPresent
+          # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+          #                          Environment
+          # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+          env:
+            - name: RUNDECK_GRAILS_URL
+              value: https://{{ .Values.rundeck.ingress.host }}
+            # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+            # Reverse Proxy
+            # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+            - name: RUNDECK_SERVER_FORWARDED
+              value: "true"
+            # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+            # JDBC MariaDB
+            # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+            - name: RUNDECK_DATABASE_DRIVER
+              value: org.mariadb.jdbc.Driver
+            - name: RUNDECK_DATABASE_URL
+              value: "jdbc:mysql://{{ .Release.Name }}-mariadb.{{ .Release.Namespace }}.svc.cluster.local:3306/rundeckdb?autoReconnect=true"
+            - name: RUNDECK_DATABASE_USERNAME
+              value: {{ .Values.mariadb.security.username | quote }}
+            - name: RUNDECK_DATABASE_PASSWORD
+              value: {{ .Values.mariadb.security.password | quote }}
+            # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+            # JAAS JettyCachingLdapLoginModule
+            # =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+            - name: RUNDECK_JAAS_MODULES_0
+              value: JettyCombinedLdapLoginModule
+            - name: RUNDECK_JAAS_LDAP_FLAG
+              value: required
+            - name: RUNDECK_JAAS_LDAP_PROVIDERURL
+              value: {{ .Values.rundeck.ldap.host }}
+            - name: RUNDECK_JAAS_LDAP_BINDDN
+              value: {{ .Values.rundeck.ldap.bind.dn }}
+            - name: RUNDECK_JAAS_LDAP_BINDPASSWORD
+              value: {{ .Values.rundeck.ldap.bind.password }}
+
+            - name: RUNDECK_JAAS_LDAP_USERBASEDN
+              value: {{ .Values.rundeck.ldap.user.dn }}
+            - name: RUNDECK_JAAS_LDAP_USEROBJECTCLASS
+              value: user
+            - name: RUNDECK_JAAS_LDAP_USERDNATTRIBUTE
+              value: sAMAccountName
+            - name: RUNDECK_JAAS_LDAP_USERIDATTRIBUTE
+              value: sAMAccountName
+            - name: RUNDECK_JAAS_LDAP_USERPASSWORDATTRIBUTE
+              value: unicodePwd
+
+            - name: RUNDECK_JAAS_LDAP_ROLEBASEDN
+              value: {{ .Values.rundeck.ldap.group.dn }}
+            - name: RUNDECK_JAAS_LDAP_ROLEOBJECTCLASS
+              value: group
+            - name: RUNDECK_JAAS_LDAP_ROLEMEMBERATTRIBUTE
+              value: member
+          # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+          #                            Ports
+          # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+          ports:
+            - name: http
+              containerPort: 4440
+          # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+          #                            Resources
+          # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+          resources: {{ .Values.rundeck.resources | toYaml | nindent 12 }}
+          # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+          #                            Probes
+          # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 4440
+              scheme: HTTP
+            initialDelaySeconds: 500
+            periodSeconds: 120
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 4440
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+          #                           Volume Mounts
+          # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+          volumeMounts:
+          - name: configs
+            mountPath: /home/rundeck/etc/admin.aclpolicy
+            subPath: admin.aclpolicy
+          - name: configs
+            mountPath: /home/rundeck/etc/desenvolvimento.aclpolicy
+            subPath: desenvolvimento.aclpolicy
+          - name: configs
+            mountPath: /home/rundeck/etc/qualidade.aclpolicy
+            subPath: qualidade.aclpolicy
+          - name: configs
+            mountPath: /home/rundeck/etc/homologacao.aclpolicy
+            subPath: homologacao.aclpolicy
+          - name: configs
+            mountPath: /home/rundeck/etc/producao.aclpolicy
+            subPath: producao.aclpolicy

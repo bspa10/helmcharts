@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-options
+  labels:
+    app.funpresp.k8s/name: rundeck
+    app.funpresp.k8s/instance: options
+    app.funpresp.k8s/part-of: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.options.replicas }}
+  selector:
+    matchLabels:
+      app.funpresp.k8s/name: rundeck
+      app.funpresp.k8s/instance: options
+      app.funpresp.k8s/part-of: {{ .Release.Name }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app.funpresp.k8s/name: rundeck
+        app.funpresp.k8s/instance: options
+        app.funpresp.k8s/part-of: {{ .Release.Name }}
+    spec:  
+      {{ if .Values.options.affinity }}
+      # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+      #                             AFFINITY    
+      # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+      affinity: {{ .Values.options.affinity | toYaml | nindent 8 }}
+      {{ end }}
+      # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+      #                                VOLUMES    
+      # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+      volumes:
+        - name: configs
+          emptyDir: {}
+      # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+      #                          Image Pull Secrets    
+      # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+      imagePullSecrets: 
+        - name: funpresp
+      # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+      #                       Initialization Containers
+      # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+      initContainers:
+        - name: initializer
+          image: registry.private.com.br/lnx/alpine:3.13
+          command: [ "bash", "-c" ]
+          args:
+            - |
+              echo "{{ .Values.options.gitlab.token }}" > /var/config/gitlab-token
+          volumeMounts:
+            - name: configs
+              mountPath: /var/config
+      # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+      #                            CONTAINERS    
+      # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+      containers:
+        - name: options
+          image: registry.private.com.br/app/rundeck/options:{{ .Values.options.image.tag }}
+          imagePullPolicy: IfNotPresent
+          # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+          #                            Environment
+          # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+          env:
+            - name: GITLAB_HOST
+              value: {{ .Values.options.gitlab.host }}
+          # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+          #                            Ports
+          # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+          ports:
+            - name: http
+              containerPort: 8080
+          # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+          #                            Resources
+          # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+          resources: {{ .Values.options.resources | toYaml | nindent 12 }}
+          # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+          #                            Probes
+          # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+              scheme: HTTP
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+              scheme: HTTP
+          # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+          #                           Volume Mounts
+          # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+          volumeMounts:
+          - name: configs
+            mountPath: /etc/secrets

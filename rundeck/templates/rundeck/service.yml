@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-server
+  labels:
+    app.kubernetes.io/part-of: {{ .Release.Name }}
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 4440
+  selector:
+    app.funpresp.k8s/name: rundeck
+    app.funpresp.k8s/instance: server
+    app.funpresp.k8s/part-of: {{ .Release.Name }}

@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-mariadb
+  labels:
+    app.funpresp.k8s/name: mariadb
+    app.funpresp.k8s/instance: rundeck
+    app.funpresp.k8s/part-of: {{ .Release.Name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.funpresp.k8s/name: mariadb
+      app.funpresp.k8s/instance: rundeck
+      app.funpresp.k8s/part-of: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.funpresp.k8s/name: mariadb
+        app.funpresp.k8s/instance: rundeck
+        app.funpresp.k8s/part-of: {{ .Release.Name }}
+    spec:
+      # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+      #                                VOLUMES    
+      # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+      volumes:
+        - name: dbdata
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-mariadb-data
+      {{ if .Values.mariadb.affinity }}
+      # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+      #                             AFFINITY    
+      # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+      affinity: {{ .Values.mariadb.affinity | toYaml | nindent 8 }}
+      {{ end }}
+      # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+      #                            SECURITY CONTEXT
+      # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+      securityContext:
+        fsGroup: 1001
+      # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+      #                                CONTAINER    
+      # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+      containers:
+        - name: mariadb
+          image: bitnami/mariadb:10.5.9-debian-10-r42
+          # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+          #                               Environment
+          # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+          env:
+            - name: MARIADB_ROOT_USER
+              value: root
+            - name: MARIADB_ROOT_PASSWORD
+              value: "123456"
+              
+            - name: MARIADB_USER
+              value: {{ .Values.mariadb.security.username }}
+            - name: MARIADB_PASSWORD
+              value: {{ .Values.mariadb.security.password }}
+            - name: MARIADB_DATABASE
+              value: {{ .Values.mariadb.database }}
+          # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+          #                               Ports
+          # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+          ports:
+            - containerPort: 3306
+              name: sql
+          # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+          #                            Resources
+          # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+          resources: {{ .Values.mariadb.resources | toYaml | nindent 12 }}
+          # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+          #                           Volume Mounts
+          # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+          volumeMounts:
+          - name: dbdata
+            mountPath: /bitnami/mariadb

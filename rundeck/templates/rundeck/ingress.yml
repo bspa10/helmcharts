@@ -1,0 +1,21 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: {{ .Values.rundeck.ingress.host }}
+  labels:
+    app.funpresp.k8s/part-of: {{ .Release.Name }}
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  tls:
+  - hosts:
+    - {{ .Values.rundeck.ingress.host }}
+    secretName: {{ .Values.rundeck.ingress.tls.secretName }}
+  rules:
+  - host: {{ .Values.rundeck.ingress.host }}
+    http:
+      paths:
+      - backend:
+          serviceName: {{ .Release.Name }}-server
+          servicePort: 8080
+        path: /
