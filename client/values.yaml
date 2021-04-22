@@ -1,0 +1,30 @@
+rundeck:
+  ldap:
+    host: ldap://ldap.private.exe:389
+    bind:
+      dn: CN=kubernetes,OU=USERS,DC=PRIVATE,DC=EXE
+      password: fake123456
+    user:
+      dn: DC=PRIVATE,DC=EXE
+    group:
+      dn: DC=PRIVATE,DC=EXE
+
+  ingress:
+    host: rundeck.dev.private.com.br
+    tls:
+      secretName: wildcard
+
+options:
+  gitlab:
+    host: http://gitlab.gitlab.svc.cluster.local:80
+    token: THFOdWVOdk1yeXdIWEdCYXhNWFo=
+
+mariadb:
+  database: rundeckdb
+
+  security:
+    username: rundeck
+    password: rundeck
+
+  storage:
+    size: 10Gi
